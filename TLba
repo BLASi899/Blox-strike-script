@@ -1,0 +1,88 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Настройки цветов (RGB)
+local ENEMY_COLOR = Color3.fromRGB(255, 40, 40)   -- Красный для врагов
+local TEAM_COLOR = Color3.fromRGB(40, 255, 40)    -- Зеленый для союзников
+
+local function applyESP(player)
+    if player == LocalPlayer then return end
+
+    local function setupCharacter(character)
+        if not character then return end
+
+        -- Удаляем старые элементы при спавне
+        for _, child in ipairs(character:GetChildren()) do
+            if child.Name == "BloxStrike_ESP" then
+                child:Destroy()
+            end
+        end
+
+        -- В Blox Strike важно дождаться части тела
+        local rootPart = character:WaitForChild("HumanoidRootPart", 5) or character:WaitForChild("Head", 5)
+        local humanoid = character:WaitForChild("Humanoid", 5)
+
+        if not rootPart or not humanoid then return end
+
+        -- Проверка команды (Террористы / Спецназ / Команда игрока)
+        local isTeam = player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team
+        local espColor = isTeam and TEAM_COLOR or ENEMY_COLOR
+
+        -- 1. BOX (Рамка вокруг игрока)
+        local box = Instance.new("BoxHandleAdornment")
+        box.Name = "BloxStrike_ESP"
+        box.Size = Vector3.new(3.8, 5.5, 3.8)
+        box.Color3 = espColor
+        box.Transparency = 0.5
+        box.AlwaysOnTop = true
+        box.ZIndex = 5
+        box.Adornee = rootPart
+        box.Parent = character
+
+        -- 2. BillboardGui (Текст с Ником и HP)
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "BloxStrike_ESP"
+        billboard.Adornee = rootPart
+        billboard.Size = UDim2.new(0, 200, 0, 40)
+        billboard.StudsOffset = Vector3.new(0, 3.2, 0)
+        billboard.AlwaysOnTop = true
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = espColor
+        textLabel.TextStrokeTransparency = 0
+        textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        textLabel.Font = Enum.Font.SourceSansBold
+        textLabel.TextSize = 13
+
+        -- Обновление ХП
+        local function updateHP()
+            if humanoid and humanoid.Parent then
+                local hp = math.floor(humanoid.Health)
+                textLabel.Text = string.format("[%s] %s | %d HP", isTeam and "TEAM" or "ENEMY", player.Name, hp)
+            end
+        end
+
+        updateHP()
+        humanoid:GetPropertyChangedSignal("Health"):Connect(updateHP)
+
+        textLabel.Parent = billboard
+        billboard.Parent = character
+    end
+
+    if player.Character then
+        task.spawn(setupCharacter, player.Character)
+    end
+
+    player.CharacterAdded:Connect(function(char)
+        task.spawn(setupCharacter, char)
+    end)
+end
+
+-- Инициализация всех игроков
+for _, player in ipairs(Players:GetPlayers()) do
+    applyESP(player)
+end
+
+Players.PlayerAdded:Connect(applyESP)
